@@ -2,31 +2,35 @@ import time
 import numpy as np
 
 def nms(boxes, threshold):
-    if len(boxes) == 0:
-        return []
 
-    boxes = boxes[boxes[:, 4].argsort()[::-1]]
-    selected_boxes = []
+    keep = []
+    if boxes.shape[0] != 0:
+        x1 = boxes[:, 0]
+        y1 = boxes[:, 1]
+        x2 = x1 + boxes[:, 2]
+        y2 = y1 + boxes[:, 3]
+        scores = boxes[:, 4]
 
-    while len(boxes) > 0:
-        best_box = boxes[0]
-        selected_boxes.append(best_box)
+        areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+        order = scores.argsort()[::-1]
 
-        x1 = np.maximum(best_box[0], boxes[1:, 0])
-        y1 = np.maximum(best_box[1], boxes[1:, 1])
-        x2 = np.minimum(best_box[2], boxes[1:, 2])
-        y2 = np.minimum(best_box[3], boxes[1:, 3])
+        while order.size > 0:
+            i = order[0]
+            keep.append(i)
+            xx1 = np.maximum(x1[i], x1[order[1:]])
+            yy1 = np.maximum(y1[i], y1[order[1:]])
+            xx2 = np.minimum(x2[i], x2[order[1:]])
+            yy2 = np.minimum(y2[i], y2[order[1:]])
 
-        intersection_area = np.maximum(0, x2 - x1 + 1) * np.maximum(0, y2 - y1 + 1)
-        area_box1 = (best_box[2] - best_box[0] + 1) * (best_box[3] - best_box[1] + 1)
-        area_box2 = (boxes[1:, 2] - boxes[1:, 0] + 1) * (boxes[1:, 3] - boxes[1:, 1] + 1)
-        union_area = area_box1 + area_box2 - intersection_area
-        iou = intersection_area / union_area
+            w = np.maximum(0.0, xx2 - xx1 + 1)
+            h = np.maximum(0.0, yy2 - yy1 + 1)
+            inter = w * h
+            ovr = inter / (areas[i] + areas[order[1:]] - inter)
 
-        filtered_boxes = boxes[1:][iou <= threshold]
-        boxes = filtered_boxes
+            inds = np.where(ovr <= threshold)[0]
+            order = order[inds + 1]
 
-    return np.array(selected_boxes)
+    return keep
 
 if __name__ == "__main__":
     iou_threshold = 0.5
@@ -43,8 +47,8 @@ if __name__ == "__main__":
     # [15, 15, 25, 25, 0.8]
     # [30, 30, 40, 40, 0.7]
     # [35, 35, 45, 45, 0.6]
-    # for box in selected_boxes:
-    #     print(box)
+    for box in selected_boxes:
+        print(box)
 
     # Test speed
     start = time.time()
